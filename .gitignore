@@ -70,3 +70,8 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+backup/RunModel.cs
+Assets/BARRACUDA/Archive/run_yolo11-pose.py
+Assets/BARRACUDA/Archive/run_yolo11-pose.py.meta
+Assets/BARRACUDA/Archive/yolo11n.py
+Assets/BARRACUDA/Archive/yolo11n.py.meta
