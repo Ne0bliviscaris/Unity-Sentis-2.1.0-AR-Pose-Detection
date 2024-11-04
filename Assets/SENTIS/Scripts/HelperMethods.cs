@@ -44,7 +44,7 @@ namespace Sentis
             imageProcessor = new ImageProcessor(imageSize);
             tensorConverter = new TensorConverter(imageSize);
             outputProcessor = new OutputProcessor();
-            Debug.Log("Processors initialized successfully");
+            // Debug.Log("Processors initialized successfully");
         }
 
         /// Initializes ML model and creates worker
@@ -61,9 +61,9 @@ namespace Sentis
                     return null;
                 }
 
-                Debug.Log(
-                    $"Model initialized with CPU backend. Input shape: {runtimeModel.inputs[0].shape}"
-                );
+                // Debug.Log(
+                //     $"Model initialized with CPU backend. Input shape: {runtimeModel.inputs[0].shape}"
+                // );
                 return worker;
             }
             catch (Exception e)
@@ -83,7 +83,7 @@ namespace Sentis
             {
                 cameraProvider.Initialize();
                 cameraProvider.StartCapture();
-                Debug.Log("Camera initialized and started");
+                // Debug.Log("Camera initialized and started");
                 return true;
             }
             catch (Exception e)
