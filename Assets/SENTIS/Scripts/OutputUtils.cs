@@ -54,8 +54,26 @@ namespace Sentis
         /// Downloads tensor data to NativeArray.
         public static NativeArray<float> DownloadTensorData(Tensor<float> outputTensor)
         {
-            Debug.Log("Downloading tensor data to NativeArray");
-            return outputTensor.DownloadToNativeArray();
+            if (outputTensor == null)
+            {
+                Debug.LogError("Output tensor is null.");
+                return default;
+            }
+
+            // Debug.Log("Downloading tensor data to NativeArray");
+            try
+            {
+                var nativeArray = outputTensor.DownloadToNativeArray();
+                // Debug.Log("Successfully downloaded tensor data.");
+                return nativeArray;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError(
+                    $"Error downloading tensor data: {e.Message}\nStackTrace: {e.StackTrace}"
+                );
+                return default;
+            }
         }
 
         /// Checks if the output tensor is valid.
@@ -75,11 +93,30 @@ namespace Sentis
             Tensor<float> outputTensor
         )
         {
-            currentOutputTensor?.Dispose();
-            currentOutputTensor = outputTensor;
+            try
+            {
+                // Debug.Log("Preparing output tensor...");
 
-            // Ensure all pending operations are completed
-            outputTensor.CompleteAllPendingOperations();
+                // Dispose of previous tensor if exists
+                if (currentOutputTensor != null)
+                {
+                    currentOutputTensor.Dispose();
+                    currentOutputTensor = null;
+                }
+
+                // Ensure the new tensor is ready
+                outputTensor.CompleteAllPendingOperations();
+
+                // Create a new instance to avoid reusing the same memory
+                currentOutputTensor = new Tensor<float>(outputTensor.shape);
+
+                // Debug.Log($"Tensor prepared. Shape: {outputTensor.shape}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Error preparing tensor: {e.Message}\nStackTrace: {e.StackTrace}");
+                currentOutputTensor = null;
+            }
         }
 
         /// Debugs tensor information.
