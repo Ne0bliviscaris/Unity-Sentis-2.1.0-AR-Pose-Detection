@@ -5,7 +5,7 @@ using UnityEngine;
 /// Main class for ML model handling
 namespace Sentis
 {
-    public class ModelHandler : MonoBehaviour, IDisposable
+    public class ModelHandler : MonoBehaviour
     {
         [SerializeField, Tooltip("YOLO pose detection model asset")]
         private ModelAsset modelAsset;
@@ -30,46 +30,29 @@ namespace Sentis
 
         private void Start()
         {
-            imageProcessor = new ImageProcessor(IMAGE_SIZE);
-            tensorConverter = new TensorConverter(IMAGE_SIZE);
-            outputProcessor = new OutputProcessor();
-            InitializeModel();
-
-            if (cameraProvider != null)
+            if (!HelperMethods.ValidateComponents(modelAsset, cameraProvider, previewImage))
             {
-                cameraProvider.Initialize();
-                cameraProvider.StartCapture();
-            }
-            if (keypointVisualizer == null)
-            {
-                Debug.LogError("KeypointVisualizer not assigned!");
+                enabled = false;
                 return;
             }
-            Debug.Log("KeypointVisualizer found and assigned");
-        }
 
-        private void InitializeModel()
-        {
-            try
+            HelperMethods.InitializeProcessors(
+                out imageProcessor,
+                out tensorConverter,
+                out outputProcessor,
+                IMAGE_SIZE
+            );
+            worker = HelperMethods.InitializeModel(modelAsset);
+            if (worker == null)
             {
-                var runtimeModel = ModelLoader.Load(modelAsset);
-
-                // Najprostsza inicjalizacja workera w Sentis 2.1.0
-                worker = new Worker(runtimeModel, BackendType.CPU);
-
-                if (worker == null)
-                {
-                    Debug.LogError("Failed to create worker");
-                    return;
-                }
-
-                Debug.Log(
-                    $"Model initialized with CPU backend. Input shape: {runtimeModel.inputs[0].shape}"
-                );
+                enabled = false;
+                return;
             }
-            catch (Exception e)
+
+            if (!HelperMethods.InitializeCamera(cameraProvider))
             {
-                Debug.LogError($"Model initialization failed: {e.Message}\nStack: {e.StackTrace}");
+                enabled = false;
+                return;
             }
         }
 
