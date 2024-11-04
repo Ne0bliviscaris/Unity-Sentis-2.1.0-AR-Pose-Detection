@@ -63,48 +63,48 @@ namespace Sentis
 
             try
             {
-                // 1. Przygotowanie i konwersja
-                var scaledImage = imageProcessor.ScaleImage(image);
-                using var inputTensor = tensorConverter.ImageToTensor(scaledImage);
+                using var inputTensor = PrepareAndConvertImage(image);
+                using var outputTensor = ExecuteModel(inputTensor);
 
-                // 2. Wykonanie modelu
-                worker.Schedule(inputTensor);
-
-                // 3. Pobranie i rzutowanie tensora wyjściowego
-                using var outputTensor = worker.PeekOutput() as Tensor<float>;
-                if (outputTensor == null)
-                {
-                    Debug.LogError("Output tensor is not of type Tensor<float>");
-                    return;
-                }
-
-                // 4. Przetwarzanie wyniku
-                var keypoints = outputProcessor.ProcessOutput(outputTensor);
+                var keypoints = ProcessModelOutput(outputTensor);
 
                 if (keypoints != null && keypoints.Length > 0)
                 {
-                    // Debugowanie pierwszych kluczowych punktów
-                    for (int i = 0; i < Math.Min(3, keypoints.Length); i++)
-                    {
-                        Debug.Log(
-                            $"Keypoint {i}: Position={keypoints[i].Position}, Confidence={keypoints[i].Confidence}"
-                        );
-                    }
-
+                    ImageProcessorHelper.DebugKeypoints(keypoints);
                     keypointVisualizer.DrawKeypoints(keypoints);
                 }
                 else
                 {
                     Debug.LogWarning("No valid keypoints detected");
                 }
-
-                if (scaledImage != image)
-                    UnityEngine.Object.Destroy(scaledImage);
             }
             catch (Exception e)
             {
                 Debug.LogError($"Processing failed: {e.Message}\nStack: {e.StackTrace}");
             }
+        }
+
+        /// Prepares and converts the image to a tensor.
+        private Tensor<float> PrepareAndConvertImage(Texture2D image)
+        {
+            var scaledImage = imageProcessor.ScaleImage(image);
+            var inputTensor = tensorConverter.ImageToTensor(scaledImage);
+            if (scaledImage != image)
+                UnityEngine.Object.Destroy(scaledImage);
+            return inputTensor;
+        }
+
+        /// Executes the model and returns the output tensor.
+        private Tensor<float> ExecuteModel(Tensor inputTensor)
+        {
+            worker.Schedule(inputTensor);
+            return worker.PeekOutput() as Tensor<float>;
+        }
+
+        /// Processes the output tensor and returns keypoints.
+        private KeyPoint[] ProcessModelOutput(Tensor<float> outputTensor)
+        {
+            return ImageProcessorHelper.ProcessOutput(outputProcessor, outputTensor);
         }
 
         private void UpdateCameraPreview()
