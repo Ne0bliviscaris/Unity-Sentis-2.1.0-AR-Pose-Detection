@@ -4,9 +4,7 @@ using UnityEngine.UI;
 
 namespace Sentis
 {
-    /// <summary>
     /// Handles drawing keypoints on camera preview
-    /// </summary>
     public class KeypointVisualizer : MonoBehaviour
     {
         [SerializeField, Tooltip("Size of keypoint circles")]

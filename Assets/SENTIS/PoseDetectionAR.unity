@@ -348,7 +348,7 @@ MonoBehaviour:
     type: 3}
   cameraProvider: {fileID: 980936142}
   previewImage: {fileID: 2084255297}
-  keypointVisualizer: {fileID: 0}
+  keypointVisualizer: {fileID: 1359684594}
 --- !u!4 &980936141
 Transform:
   m_ObjectHideFlags: 0
@@ -376,7 +376,54 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9b6347d89d52c04b89239c5016cf248, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  isWebGL: 0
+  isWebGL: 1
+--- !u!1 &1359684593
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1359684595}
+  - component: {fileID: 1359684594}
+  m_Layer: 0
+  m_Name: Keypoint Visualizer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1359684594
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1359684593}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5bc22cf768c180b46a3e10848e84fa0c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  pointSize: 50
+  pointColor: {r: 0, g: 1, b: 0, a: 1}
+  targetImage: {fileID: 0}
+--- !u!4 &1359684595
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1359684593}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 726.08405, y: 312.21652, z: 1.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1368842899
 GameObject:
   m_ObjectHideFlags: 0
@@ -594,3 +641,4 @@ SceneRoots:
   - {fileID: 1368842903}
   - {fileID: 75772889}
   - {fileID: 99888514}
+  - {fileID: 1359684595}

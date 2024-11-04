@@ -1,18 +1,36 @@
 using System;
+using Unity.Collections;
 using Unity.Sentis;
 using UnityEngine;
 
 /// Processes model output tensor into keypoints
 namespace Sentis
 {
-    public class OutputProcessor
+    public class OutputProcessor : IDisposable
     {
         private const int NUM_KEYPOINTS = 17;
         private readonly float confidenceThreshold;
+        private bool disposed = false;
+        private Tensor currentOutputTensor;
 
         public OutputProcessor(float confidenceThreshold = 0.5f)
         {
             this.confidenceThreshold = confidenceThreshold;
+        }
+
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                currentOutputTensor?.Dispose();
+                disposed = true;
+            }
+            GC.SuppressFinalize(this);
+        }
+
+        ~OutputProcessor()
+        {
+            Dispose();
         }
 
         private void DebugTensorInfo(Tensor tensor, NativeTensorArray array)
@@ -30,48 +48,83 @@ namespace Sentis
             }
         }
 
-        public KeyPoint[] ProcessOutput(Tensor outputTensor)
+        public KeyPoint[] ProcessOutput(Tensor<float> outputTensor)
         {
+            if (disposed)
+                throw new ObjectDisposedException(nameof(OutputProcessor));
+
             var keypoints = new KeyPoint[NUM_KEYPOINTS];
-            outputTensor.CompleteAllPendingOperations();
 
-            var clonedTensor = outputTensor.ReadbackAndClone();
-            var tensorData = clonedTensor.dataOnBackend as CPUTensorData;
-
-            if (tensorData == null)
+            if (outputTensor == null || outputTensor.shape.length == 0)
             {
-                Debug.LogError("Failed to get tensor data");
+                Debug.LogError("Output tensor is null or empty");
                 return keypoints;
             }
 
-            var nativeArray = tensorData.array;
-
-            // Add debug info first
-            DebugTensorInfo(clonedTensor, nativeArray);
-
-            // Check array bounds before processing
-            if (nativeArray.Length < NUM_KEYPOINTS * 3)
+            try
             {
-                Debug.LogError(
-                    $"Tensor data too small. Expected: {NUM_KEYPOINTS * 3}, Got: {nativeArray.Length}"
-                );
+                currentOutputTensor?.Dispose();
+                currentOutputTensor = outputTensor;
+
+                // Ensure all pending operations are completed
+                outputTensor.CompleteAllPendingOperations();
+
+                // Download tensor data to NativeArray
+                NativeArray<float> dataArray = outputTensor.DownloadToNativeArray();
+
+                // Process keypoints from dataArray
+                ProcessKeypointsFromArray(dataArray, keypoints);
+
+                // Dispose of NativeArray after use
+                dataArray.Dispose();
+
                 return keypoints;
             }
-
-            // Process each keypoint (x,y,confidence triplets)
-            for (int i = 0; i < NUM_KEYPOINTS; i++)
+            catch (Exception e)
             {
-                float x = nativeArray.Get<float>(i * 3);
-                float y = nativeArray.Get<float>(i * 3 + 1);
-                float conf = nativeArray.Get<float>(i * 3 + 2);
+                Debug.LogError($"Error processing tensor: {e.Message}\nStackTrace: {e.StackTrace}");
+                return keypoints;
+            }
+        }
 
-                if (conf >= confidenceThreshold)
+        private void ProcessKeypointsFromArray(NativeArray<float> dataArray, KeyPoint[] keypoints)
+        {
+            try
+            {
+                // Check if data array has sufficient length
+                if (dataArray.Length < NUM_KEYPOINTS * 3)
                 {
-                    keypoints[i] = new KeyPoint(new Vector2(x, y), conf);
+                    Debug.LogError(
+                        $"Invalid data array length. Expected: {NUM_KEYPOINTS * 3}, Got: {dataArray.Length}"
+                    );
+                    return;
+                }
+
+                // Clear previous keypoints
+                for (int i = 0; i < NUM_KEYPOINTS; i++)
+                {
+                    keypoints[i] = new KeyPoint(Vector2.zero, 0f);
+                }
+
+                for (int i = 0; i < NUM_KEYPOINTS; i++)
+                {
+                    // Extract x, y, confidence from data array
+                    float x = dataArray[i * 3];
+                    float y = dataArray[i * 3 + 1];
+                    float conf = dataArray[i * 3 + 2];
+
+                    if (conf >= confidenceThreshold)
+                    {
+                        keypoints[i] = new KeyPoint(new Vector2(x, y), conf);
+                    }
                 }
             }
-
-            return keypoints;
+            catch (Exception e)
+            {
+                Debug.LogError(
+                    $"Error processing keypoints: {e.Message}\nStackTrace: {e.StackTrace}"
+                );
+            }
         }
     }
 }

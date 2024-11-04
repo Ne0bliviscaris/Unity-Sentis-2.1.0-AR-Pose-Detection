@@ -1,12 +1,11 @@
 using System;
-using Sentis;
 using Unity.Sentis;
 using UnityEngine;
 
 /// Main class for ML model handling
 namespace Sentis
 {
-    public class ModelHandler : MonoBehaviour
+    public class ModelHandler : MonoBehaviour, IDisposable
     {
         [SerializeField, Tooltip("YOLO pose detection model asset")]
         private ModelAsset modelAsset;
@@ -25,6 +24,9 @@ namespace Sentis
         private TensorConverter tensorConverter;
         private OutputProcessor outputProcessor;
         private const int IMAGE_SIZE = 640;
+        private bool disposed = false;
+        private float lastProcessTime;
+        private const float PROCESS_INTERVAL = 0.1f; // Zmniejszono do 2 razy na sekundę
 
         private void Start()
         {
@@ -38,6 +40,12 @@ namespace Sentis
                 cameraProvider.Initialize();
                 cameraProvider.StartCapture();
             }
+            if (keypointVisualizer == null)
+            {
+                Debug.LogError("KeypointVisualizer not assigned!");
+                return;
+            }
+            Debug.Log("KeypointVisualizer found and assigned");
         }
 
         private void InitializeModel()
@@ -45,56 +53,74 @@ namespace Sentis
             try
             {
                 var runtimeModel = ModelLoader.Load(modelAsset);
-                // Zmiana na CPU dla WebGL
-                if (Application.platform == RuntimePlatform.WebGLPlayer)
+
+                // Najprostsza inicjalizacja workera w Sentis 2.1.0
+                worker = new Worker(runtimeModel, BackendType.CPU);
+
+                if (worker == null)
                 {
-                    worker = new Worker(runtimeModel, BackendType.CPU);
-                    Debug.Log("Using CPU backend for WebGL");
+                    Debug.LogError("Failed to create worker");
+                    return;
                 }
-                else
-                {
-                    worker = new Worker(runtimeModel, BackendType.GPUCompute);
-                    Debug.Log("Using GPU backend");
-                }
+
+                Debug.Log(
+                    $"Model initialized with CPU backend. Input shape: {runtimeModel.inputs[0].shape}"
+                );
             }
             catch (Exception e)
             {
-                Debug.LogError($"Model initialization failed: {e.Message}");
+                Debug.LogError($"Model initialization failed: {e.Message}\nStack: {e.StackTrace}");
             }
         }
 
         public void ProcessImage(Texture2D image)
         {
+            if (worker == null || disposed)
+                return;
+
             try
             {
+                // 1. Przygotowanie i konwersja
                 var scaledImage = imageProcessor.ScaleImage(image);
-                var inputTensor = tensorConverter.ImageToTensor(scaledImage);
+                using var inputTensor = tensorConverter.ImageToTensor(scaledImage);
 
-                using (inputTensor) // Dispose input tensor after use
+                // 2. Wykonanie modelu
+                worker.Schedule(inputTensor);
+
+                // 3. Pobranie i rzutowanie tensora wyjściowego
+                using var outputTensor = worker.PeekOutput() as Tensor<float>;
+                if (outputTensor == null)
                 {
-                    worker.Schedule(inputTensor);
-                    var outputTensor = worker.PeekOutput();
+                    Debug.LogError("Output tensor is not of type Tensor<float>");
+                    return;
+                }
 
-                    using (outputTensor) // Dispose output tensor after use
+                // 4. Przetwarzanie wyniku
+                var keypoints = outputProcessor.ProcessOutput(outputTensor);
+
+                if (keypoints != null && keypoints.Length > 0)
+                {
+                    // Debugowanie pierwszych kluczowych punktów
+                    for (int i = 0; i < Math.Min(3, keypoints.Length); i++)
                     {
-                        var keypoints = outputProcessor.ProcessOutput(outputTensor);
-
-                        if (keypointVisualizer != null)
-                        {
-                            keypointVisualizer.DrawKeypoints(keypoints);
-                        }
+                        Debug.Log(
+                            $"Keypoint {i}: Position={keypoints[i].Position}, Confidence={keypoints[i].Confidence}"
+                        );
                     }
+
+                    keypointVisualizer.DrawKeypoints(keypoints);
+                }
+                else
+                {
+                    Debug.LogWarning("No valid keypoints detected");
                 }
 
-                // Clean up scaled image if needed
                 if (scaledImage != image)
-                {
                     UnityEngine.Object.Destroy(scaledImage);
-                }
             }
             catch (Exception e)
             {
-                Debug.LogError($"Processing failed: {e.Message}");
+                Debug.LogError($"Processing failed: {e.Message}\nStack: {e.StackTrace}");
             }
         }
 
@@ -113,14 +139,50 @@ namespace Sentis
         private void Update()
         {
             UpdateCameraPreview();
+
+            // Sprawdź czy minął wymagany czas
+            if (Time.time - lastProcessTime < PROCESS_INTERVAL)
+                return;
+
             if (cameraProvider != null && cameraProvider.IsInitialized)
             {
                 var frame = cameraProvider.GetCurrentFrame();
                 if (frame != null)
                 {
                     ProcessImage(frame);
+                    lastProcessTime = Time.time;
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                worker?.Dispose();
+
+                if (imageProcessor != null)
+                    ((IDisposable)imageProcessor).Dispose();
+
+                if (tensorConverter != null)
+                    ((IDisposable)tensorConverter).Dispose();
+
+                if (outputProcessor != null)
+                    ((IDisposable)outputProcessor).Dispose();
+
+                disposed = true;
+            }
+        }
+
+        public void SetVisualizer(KeypointVisualizer visualizer)
+        {
+            keypointVisualizer = visualizer;
+            Debug.Log($"Visualizer set: {(visualizer != null ? "yes" : "no")}");
+        }
+
+        private void OnDestroy()
+        {
+            Dispose();
         }
     }
 }
