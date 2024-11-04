@@ -11,12 +11,13 @@ namespace Sentis
     public class WebCameraProvider : MonoBehaviour, ICameraProvider
     {
         [SerializeField]
-        private bool isWebGL = false;
+        private bool isWebGL = true;
 
         private WebCamTexture webCamTexture;
         private Texture2D currentFrame;
         private int width = 640;
         private int height = 480;
+        private Color32[] pixelBuffer;
 
         public bool IsInitialized => webCamTexture != null;
 
@@ -56,6 +57,7 @@ namespace Sentis
             // Explicit size for WebGL
             webCamTexture = new WebCamTexture(width, height, 30);
             currentFrame = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            pixelBuffer = new Color32[width * height];
         }
 
         public void StartCapture()
@@ -95,9 +97,11 @@ namespace Sentis
                         TextureFormat.RGBA32,
                         false
                     );
+                    pixelBuffer = new Color32[webCamTexture.width * webCamTexture.height];
                 }
 
-                currentFrame.SetPixels32(webCamTexture.GetPixels32());
+                webCamTexture.GetPixels32(pixelBuffer);
+                currentFrame.SetPixels32(pixelBuffer);
                 currentFrame.Apply();
                 return currentFrame;
             }
