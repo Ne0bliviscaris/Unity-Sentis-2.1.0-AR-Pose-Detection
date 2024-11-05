@@ -10,8 +10,9 @@ namespace Sentis
         {
             for (int i = 0; i < Mathf.Min(count, keypoints.Length); i++)
             {
+                var keypointName = (KeypointName)i;
                 Debug.Log(
-                    $"Keypoint {i}: Position={keypoints[i].Position}, Confidence={keypoints[i].Confidence}"
+                    $"Keypoint {i} {keypointName}: Position={keypoints[i].Position}, Confidence={keypoints[i].Confidence}"
                 );
             }
         }
