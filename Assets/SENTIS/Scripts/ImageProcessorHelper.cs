@@ -1,21 +1,10 @@
 // ImageProcessorHelper.cs
-using Sentis;
-using Unity.Sentis;
 using UnityEngine;
 
 namespace Sentis
 {
     public static class ImageProcessorHelper
     {
-        /// Processes the output tensor.
-        public static KeyPoint[] ProcessOutput(
-            OutputProcessor outputProcessor,
-            Tensor<float> outputTensor
-        )
-        {
-            return outputProcessor.ProcessOutput(outputTensor);
-        }
-
         /// Debugs the first few keypoints.
         public static void DebugKeypoints(KeyPoint[] keypoints, int count = 3)
         {

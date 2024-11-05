@@ -23,10 +23,12 @@ namespace Sentis
         private ImageProcessor imageProcessor;
         private TensorConverter tensorConverter;
         private OutputProcessor outputProcessor;
-        private const int IMAGE_SIZE = 640;
+        private const int MODEL_INPUT_SIZE = 640;
         private bool disposed = false;
         private float lastProcessTime;
-        private const float PROCESS_INTERVAL = 0.1f; // Zmniejszono do 2 razy na sekundę
+
+        [SerializeField]
+        private float PROCESS_INTERVAL = 0.3f; // Zmniejszono do 2 razy na sekundę
 
         private void Start()
         {
@@ -40,7 +42,7 @@ namespace Sentis
                 out imageProcessor,
                 out tensorConverter,
                 out outputProcessor,
-                IMAGE_SIZE
+                MODEL_INPUT_SIZE
             );
             worker = HelperMethods.InitializeModel(modelAsset);
             if (worker == null)
@@ -105,18 +107,15 @@ namespace Sentis
         /// Processes the output tensor and returns keypoints.
         private KeyPoint[] ProcessModelOutput(Tensor<float> outputTensor)
         {
-            return ImageProcessorHelper.ProcessOutput(outputProcessor, outputTensor);
+            return outputProcessor.ProcessOutput(outputTensor);
         }
 
         private void UpdateCameraPreview()
         {
-            if (cameraProvider != null && cameraProvider.IsInitialized)
+            var frame = cameraProvider.GetCurrentFrame();
+            if (frame != null && previewImage != null)
             {
-                var frame = cameraProvider.GetCurrentFrame();
-                if (frame != null && previewImage != null)
-                {
-                    previewImage.texture = frame;
-                }
+                previewImage.texture = frame;
             }
         }
 

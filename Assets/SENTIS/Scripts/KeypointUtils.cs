@@ -77,9 +77,9 @@ namespace Sentis
             }
 
             // Debugowanie wartości confidence
-            Debug.Log(
-                $"Confidence range: {keypoints.Min(k => k.Confidence)} - {keypoints.Max(k => k.Confidence)}"
-            );
+            // Debug.Log(
+            //     $"Confidence range: {keypoints.Min(k => k.Confidence)} - {keypoints.Max(k => k.Confidence)}"
+            // );
 
             return true;
         }

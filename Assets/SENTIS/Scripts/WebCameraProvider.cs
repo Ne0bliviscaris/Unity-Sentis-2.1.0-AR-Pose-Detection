@@ -5,9 +5,7 @@ using UnityEngine;
 
 namespace Sentis
 {
-    /// <summary>
     /// Handles webcam input for pose detection
-    /// </summary>
     public class WebCameraProvider : MonoBehaviour, ICameraProvider
     {
         [SerializeField]
@@ -16,7 +14,7 @@ namespace Sentis
         private WebCamTexture webCamTexture;
         private Texture2D currentFrame;
         private int width = 640;
-        private int height = 480;
+        private int height = 640;
         private Color32[] pixelBuffer;
 
         public bool IsInitialized => webCamTexture != null;

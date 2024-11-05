@@ -42,19 +42,6 @@ namespace Sentis
             if (!ValidateDataArrayLength(dataArray, numKeypoints * 3))
                 return;
 
-            // Znajdź zakres confidence do normalizacji
-            float minConf = float.MaxValue;
-            float maxConf = float.MinValue;
-
-            for (int i = 0; i < numKeypoints; i++)
-            {
-                float conf = dataArray[i * 3 + 2];
-                minConf = Mathf.Min(minConf, conf);
-                maxConf = Mathf.Max(maxConf, conf);
-            }
-
-            Debug.Log($"Original confidence range: {minConf} - {maxConf}");
-
             for (int i = 0; i < numKeypoints; i++)
             {
                 int xIndex = i * 3;
@@ -65,18 +52,28 @@ namespace Sentis
                 float y = dataArray[yIndex];
                 float conf = dataArray[confIndex];
 
-                // Normalizuj confidence do zakresu [0,1]
-                float normalizedConf = (conf - minConf) / (maxConf - minConf);
+                KeypointName keypointName = (KeypointName)i;
 
-                if (normalizedConf >= confidenceThreshold)
+                if (conf >= confidenceThreshold)
                 {
-                    keypoints[i] = new KeyPoint(new Vector2(x, y), normalizedConf);
-                    Debug.Log($"Keypoint {i}: pos=({x}, {y}), normalized conf={normalizedConf:F3}");
+                    keypoints[i] = new KeyPoint(new Vector2(x, y), conf);
                 }
                 else
                 {
                     keypoints[i] = new KeyPoint(Vector2.zero, 0f);
                 }
+            }
+        }
+
+        // Debug raw tensor data
+        public static void DebugRawTensorData(NativeArray<float> dataArray, int numKeypoints)
+        {
+            Debug.Log("Raw tensor data:");
+            for (int i = 0; i < Math.Min(numKeypoints * 3, dataArray.Length); i += 3)
+            {
+                Debug.Log(
+                    $"Index {i / 3}: ({dataArray[i]}, {dataArray[i + 1]}, {dataArray[i + 2]})"
+                );
             }
         }
 

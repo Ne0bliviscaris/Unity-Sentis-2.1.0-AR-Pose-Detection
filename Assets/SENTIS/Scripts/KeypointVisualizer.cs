@@ -70,18 +70,13 @@ namespace Sentis
             {
                 if (keypoints[i].Confidence > confidenceThreshold)
                 {
-                    // Debug.Log dla sprawdzenia wartości
-                    Debug.Log(
-                        $"Keypoint {i}: Raw position={keypoints[i].Position}, Confidence={keypoints[i].Confidence}"
-                    );
+                    Vector2 pos = keypoints[i].Position;
 
-                    Vector2 pixelPos = KeypointUtils.GetPixelCoordinates(
-                        keypoints[i].Position, // Używamy bezpośrednio znormalizowanej pozycji
-                        drawingTexture.width,
-                        drawingTexture.height
+                    // Przekształć pozycję z zakresu [0,1] na piksele
+                    Vector2 pixelPos = new Vector2(
+                        pos.x * drawingTexture.width,
+                        pos.y * drawingTexture.height
                     );
-
-                    // Debug.Log($"Keypoint {i}: Pixel position={pixelPos}");
 
                     if (
                         KeypointUtils.IsWithinTextureBounds(
@@ -101,39 +96,6 @@ namespace Sentis
         {
             drawingTexture.Apply();
             targetImage.texture = drawingTexture;
-        }
-
-        private void DrawPoint(Vector2 position, float size, Color color)
-        {
-            // Przekształć współrzędne z zakresu [0,1] na piksele
-            int x = Mathf.RoundToInt(position.x * drawingTexture.width);
-            int y = Mathf.RoundToInt(position.y * drawingTexture.height);
-
-            // Rysuj punkt jako koło
-            int radius = Mathf.RoundToInt(size);
-            int radiusSquared = radius * radius;
-
-            for (int i = -radius; i <= radius; i++)
-            {
-                for (int j = -radius; j <= radius; j++)
-                {
-                    if (i * i + j * j <= radiusSquared)
-                    {
-                        int px = x + i;
-                        int py = y + j;
-
-                        if (
-                            px >= 0
-                            && px < drawingTexture.width
-                            && py >= 0
-                            && py < drawingTexture.height
-                        )
-                        {
-                            drawingTexture.SetPixel(px, py, color);
-                        }
-                    }
-                }
-            }
         }
 
         private void OnDestroy()
