@@ -1,5 +1,6 @@
 // OutputUtils.cs
 using System;
+using System.Linq;
 using Unity.Collections;
 using Unity.Sentis;
 using UnityEngine;
@@ -38,15 +39,43 @@ namespace Sentis
             float confidenceThreshold
         )
         {
+            if (!ValidateDataArrayLength(dataArray, numKeypoints * 3))
+                return;
+
+            // Znajdź zakres confidence do normalizacji
+            float minConf = float.MaxValue;
+            float maxConf = float.MinValue;
+
             for (int i = 0; i < numKeypoints; i++)
             {
-                float x = dataArray[i * 3];
-                float y = dataArray[i * 3 + 1];
                 float conf = dataArray[i * 3 + 2];
+                minConf = Mathf.Min(minConf, conf);
+                maxConf = Mathf.Max(maxConf, conf);
+            }
 
-                if (conf >= confidenceThreshold)
+            Debug.Log($"Original confidence range: {minConf} - {maxConf}");
+
+            for (int i = 0; i < numKeypoints; i++)
+            {
+                int xIndex = i * 3;
+                int yIndex = i * 3 + 1;
+                int confIndex = i * 3 + 2;
+
+                float x = dataArray[xIndex];
+                float y = dataArray[yIndex];
+                float conf = dataArray[confIndex];
+
+                // Normalizuj confidence do zakresu [0,1]
+                float normalizedConf = (conf - minConf) / (maxConf - minConf);
+
+                if (normalizedConf >= confidenceThreshold)
                 {
-                    keypoints[i] = new KeyPoint(new Vector2(x, y), conf);
+                    keypoints[i] = new KeyPoint(new Vector2(x, y), normalizedConf);
+                    Debug.Log($"Keypoint {i}: pos=({x}, {y}), normalized conf={normalizedConf:F3}");
+                }
+                else
+                {
+                    keypoints[i] = new KeyPoint(Vector2.zero, 0f);
                 }
             }
         }
