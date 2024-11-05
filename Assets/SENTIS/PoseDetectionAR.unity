@@ -406,9 +406,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5bc22cf768c180b46a3e10848e84fa0c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  pointSize: 50
+  pointSize: 10
   pointColor: {r: 0, g: 1, b: 0, a: 1}
-  targetImage: {fileID: 0}
+  targetImage: {fileID: 2084255297}
+  confidenceThreshold: 0.8
 --- !u!4 &1359684595
 Transform:
   m_ObjectHideFlags: 0
