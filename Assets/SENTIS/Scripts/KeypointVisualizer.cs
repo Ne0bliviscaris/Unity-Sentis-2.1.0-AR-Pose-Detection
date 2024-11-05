@@ -1,4 +1,5 @@
 // KeypointVisualizer.cs
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -23,67 +24,81 @@ namespace Sentis
 
         public void DrawKeypoints(KeyPoint[] keypoints)
         {
-            if (targetImage == null || keypoints == null)
-            {
-                Debug.LogWarning("Target image or keypoints are null");
+            if (!KeypointUtils.ValidateVisualizationInput(targetImage, keypoints))
                 return;
-            }
 
-            // Create or recreate drawing texture if needed
-            if (
-                drawingTexture == null
-                || drawingTexture.width != targetImage.texture.width
-                || drawingTexture.height != targetImage.texture.height
-            )
-            {
-                if (drawingTexture != null)
-                    Destroy(drawingTexture);
+            if (!PrepareTexture())
+                return;
 
-                drawingTexture = new Texture2D(
-                    targetImage.texture.width,
-                    targetImage.texture.height,
-                    TextureFormat.RGBA32,
-                    false
-                );
-                Debug.Log($"Created new texture: {drawingTexture.width}x{drawingTexture.height}");
-            }
-
-            // Copy background
             Graphics.CopyTexture(targetImage.texture, drawingTexture);
+            DrawAllKeypoints(keypoints);
+            ApplyChanges();
+        }
 
-            // Draw keypoints
+        private bool PrepareTexture()
+        {
+            try
+            {
+                if (
+                    drawingTexture == null
+                    || drawingTexture.width != targetImage.texture.width
+                    || drawingTexture.height != targetImage.texture.height
+                )
+                {
+                    if (drawingTexture != null)
+                        Destroy(drawingTexture);
+
+                    drawingTexture = new Texture2D(
+                        targetImage.texture.width,
+                        targetImage.texture.height,
+                        TextureFormat.RGBA32,
+                        false
+                    );
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to prepare texture: {e.Message}");
+                return false;
+            }
+        }
+
+        private void DrawAllKeypoints(KeyPoint[] keypoints)
+        {
             for (int i = 0; i < keypoints.Length; i++)
             {
-                if (keypoints[i].Confidence > 0)
+                if (keypoints[i].Confidence > confidenceThreshold)
                 {
-                    // Normalizuj pozycję do zakresu [0,1]
-                    Vector2 originalPos = keypoints[i].Position;
-                    Vector2 normalizedPos = new Vector2(
-                        originalPos.x / drawingTexture.width,
-                        originalPos.y / drawingTexture.height
-                    );
-
+                    // Debug.Log dla sprawdzenia wartości
                     Debug.Log(
-                        $"Keypoint {i}: Original: {originalPos}, Normalized: {normalizedPos}, Confidence: {keypoints[i].Confidence}"
+                        $"Keypoint {i}: Raw position={keypoints[i].Position}, Confidence={keypoints[i].Confidence}"
                     );
 
-                    // Sprawdź, czy znormalizowane wartości są w zakresie [0,1]
+                    Vector2 pixelPos = KeypointUtils.GetPixelCoordinates(
+                        keypoints[i].Position, // Używamy bezpośrednio znormalizowanej pozycji
+                        drawingTexture.width,
+                        drawingTexture.height
+                    );
+
+                    // Debug.Log($"Keypoint {i}: Pixel position={pixelPos}");
+
                     if (
-                        normalizedPos.x >= 0
-                        && normalizedPos.x <= 1
-                        && normalizedPos.y >= 0
-                        && normalizedPos.y <= 1
+                        KeypointUtils.IsWithinTextureBounds(
+                            pixelPos,
+                            drawingTexture.width,
+                            drawingTexture.height
+                        )
                     )
                     {
-                        DrawPoint(normalizedPos, pointSize, pointColor);
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"Keypoint {i} position out of range: {normalizedPos}");
+                        KeypointUtils.DrawCircle(drawingTexture, pixelPos, pointSize, pointColor);
                     }
                 }
             }
+        }
 
+        private void ApplyChanges()
+        {
             drawingTexture.Apply();
             targetImage.texture = drawingTexture;
         }
