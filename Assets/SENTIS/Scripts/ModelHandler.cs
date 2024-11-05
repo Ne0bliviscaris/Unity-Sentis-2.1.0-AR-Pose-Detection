@@ -23,12 +23,11 @@ namespace Sentis
         private ImageProcessor imageProcessor;
         private TensorConverter tensorConverter;
         private OutputProcessor outputProcessor;
-        private const int MODEL_INPUT_SIZE = 640;
         private bool disposed = false;
         private float lastProcessTime;
 
-        [SerializeField]
-        private float PROCESS_INTERVAL = 0.3f; // Zmniejszono do 2 razy na sekundę
+        private const int MODEL_INPUT_SIZE = 640;
+        private const float PROCESS_INTERVAL = 0.3f; // Zmniejszono do 2 razy na sekundę
 
         private void Start()
         {
@@ -45,45 +44,28 @@ namespace Sentis
                 MODEL_INPUT_SIZE
             );
             worker = HelperMethods.InitializeModel(modelAsset);
-            if (worker == null)
-            {
-                enabled = false;
-                return;
-            }
-
-            if (!HelperMethods.InitializeCamera(cameraProvider))
-            {
-                enabled = false;
-                return;
-            }
+            HelperMethods.InitializeCamera(cameraProvider);
         }
 
         public void ProcessImage(Texture2D image)
         {
-            if (worker == null || disposed)
+            if (disposed)
                 return;
 
-            try
+            using var inputTensor = PrepareAndConvertImage(image);
+            using var outputTensor = ExecuteModel(inputTensor);
+
+            var keypoints = outputProcessor.ProcessModelOutput(outputTensor);
+
+            if (keypoints != null && keypoints.Length > 0)
             {
-                using var inputTensor = PrepareAndConvertImage(image);
-                using var outputTensor = ExecuteModel(inputTensor);
-
-                var keypoints = ProcessModelOutput(outputTensor);
-
-                if (keypoints != null && keypoints.Length > 0)
-                {
-                    // Uncomment to debug keypoints
-                    // ImageProcessorHelper.DebugKeypoints(keypoints);
-                    keypointVisualizer.DrawKeypoints(keypoints);
-                }
-                else
-                {
-                    Debug.LogWarning("No valid keypoints detected");
-                }
+                // Uncomment to debug keypoints
+                ImageProcessorHelper.DebugKeypoints(keypoints);
+                keypointVisualizer.DrawKeypoints(keypoints);
             }
-            catch (Exception e)
+            else
             {
-                Debug.LogError($"Processing failed: {e.Message}\nStack: {e.StackTrace}");
+                Debug.LogWarning("No valid keypoints detected");
             }
         }
 
@@ -104,12 +86,6 @@ namespace Sentis
             return worker.PeekOutput() as Tensor<float>;
         }
 
-        /// Processes the output tensor and returns keypoints.
-        private KeyPoint[] ProcessModelOutput(Tensor<float> outputTensor)
-        {
-            return outputProcessor.ProcessOutput(outputTensor);
-        }
-
         private void UpdateCameraPreview()
         {
             var frame = cameraProvider.GetCurrentFrame();
@@ -124,17 +100,15 @@ namespace Sentis
             UpdateCameraPreview();
 
             // Sprawdź czy minął wymagany czas
-            if (Time.time - lastProcessTime < PROCESS_INTERVAL)
+            float elapsedTime = Time.time - lastProcessTime;
+            if (elapsedTime < PROCESS_INTERVAL)
                 return;
 
-            if (cameraProvider != null && cameraProvider.IsInitialized)
+            var frame = cameraProvider.GetCurrentFrame();
+            if (frame != null)
             {
-                var frame = cameraProvider.GetCurrentFrame();
-                if (frame != null)
-                {
-                    ProcessImage(frame);
-                    lastProcessTime = Time.time;
-                }
+                ProcessImage(frame);
+                lastProcessTime = Time.time;
             }
         }
 
@@ -155,12 +129,6 @@ namespace Sentis
 
                 disposed = true;
             }
-        }
-
-        public void SetVisualizer(KeypointVisualizer visualizer)
-        {
-            keypointVisualizer = visualizer;
-            Debug.Log($"Visualizer set: {(visualizer != null ? "yes" : "no")}");
         }
 
         private void OnDestroy()
