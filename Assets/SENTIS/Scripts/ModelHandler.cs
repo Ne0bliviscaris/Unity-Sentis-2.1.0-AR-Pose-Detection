@@ -47,7 +47,7 @@ namespace Sentis
             HelperMethods.InitializeCamera(cameraProvider);
         }
 
-        public void ProcessImage(Texture2D image)
+        public void ProcessImageWithModel(Texture2D image)
         {
             if (disposed)
                 return;
@@ -107,7 +107,7 @@ namespace Sentis
             var frame = cameraProvider.GetCurrentFrame();
             if (frame != null)
             {
-                ProcessImage(frame);
+                ProcessImageWithModel(frame);
                 lastProcessTime = Time.time;
             }
         }
