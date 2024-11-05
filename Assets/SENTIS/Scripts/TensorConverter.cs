@@ -4,9 +4,7 @@ using UnityEngine;
 
 namespace Sentis
 {
-    /// <summary>
     /// Handles conversion of images to Sentis tensors
-    /// </summary>
     public class TensorConverter : IDisposable
     {
         private readonly int imageSize;
@@ -26,9 +24,7 @@ namespace Sentis
             GC.SuppressFinalize(this);
         }
 
-        /// <summary>
         /// Converts Unity Texture2D to Sentis tensor in CHW format
-        /// </summary>
         public Tensor<float> ImageToTensor(Texture2D image)
         {
             if (disposed)
@@ -46,9 +42,7 @@ namespace Sentis
             return new Tensor<float>(shape, tensorData);
         }
 
-        /// <summary>
         /// Converts pixel array to normalized tensor data in CHW format
-        /// </summary>
         private void ConvertPixelsToTensorData(Color32[] pixels, float[] tensorData)
         {
             int pixelsLength = pixels.Length;
@@ -74,9 +68,7 @@ namespace Sentis
             }
         }
 
-        /// <summary>
         /// Calculates 1D index for tensor data in CHW format
-        /// </summary>
         private int GetTensorIndex(int channel, int x, int y)
         {
             return channel * imageSize * imageSize + y * imageSize + x;
