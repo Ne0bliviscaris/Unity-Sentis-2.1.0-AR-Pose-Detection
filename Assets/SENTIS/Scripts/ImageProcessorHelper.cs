@@ -6,7 +6,7 @@ namespace Sentis
     public static class ImageProcessorHelper
     {
         /// Debugs the first few keypoints.
-        public static void DebugKeypoints(KeyPoint[] keypoints, int count = 3)
+        public static void DebugKeypoints(KeyPoint[] keypoints, int count = 10)
         {
             for (int i = 0; i < Mathf.Min(count, keypoints.Length); i++)
             {

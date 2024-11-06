@@ -33,8 +33,8 @@ namespace Sentis
             Dispose();
         }
 
-        // OutputProcessor.cs
-        public KeyPoint[] ProcessOutput(Tensor<float> outputTensor)
+        /// Validates tensor and initializes keypoints array.
+        private KeyPoint[] ValidateAndInitializeKeypoints(Tensor<float> outputTensor)
         {
             if (disposed)
                 throw new ObjectDisposedException(nameof(OutputProcessor));
@@ -42,6 +42,17 @@ namespace Sentis
             var keypoints = new KeyPoint[NUM_KEYPOINTS];
 
             if (!OutputUtils.IsOutputTensorValid(outputTensor))
+                return keypoints;
+
+            return keypoints;
+        }
+
+        // OutputProcessor.cs
+        public KeyPoint[] ProcessModelOutput(Tensor<float> outputTensor)
+        {
+            var keypoints = ValidateAndInitializeKeypoints(outputTensor);
+
+            if (keypoints.Length == 0)
                 return keypoints;
 
             try

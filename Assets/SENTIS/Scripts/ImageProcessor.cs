@@ -39,15 +39,17 @@ namespace Sentis
             Dispose();
         }
 
+        /// Scales the source image to the target size.
         public Texture2D ScaleImage(Texture2D sourceImage)
         {
             if (disposed)
                 throw new ObjectDisposedException(nameof(ImageProcessor));
 
             var rt = RenderTexture.GetTemporary(targetSize, targetSize);
+
             Graphics.Blit(sourceImage, rt);
 
-            var scaledImage = new Texture2D(targetSize, targetSize);
+            var scaledImage = new Texture2D(targetSize, targetSize, TextureFormat.RGBA32, false); // No mipmaps
             var prevActive = RenderTexture.active;
             RenderTexture.active = rt;
             scaledImage.ReadPixels(new Rect(0, 0, targetSize, targetSize), 0, 0);
@@ -55,6 +57,7 @@ namespace Sentis
             RenderTexture.active = prevActive;
 
             RenderTexture.ReleaseTemporary(rt);
+
             return scaledImage;
         }
     }

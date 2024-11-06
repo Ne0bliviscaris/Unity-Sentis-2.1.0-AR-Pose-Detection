@@ -19,12 +19,16 @@ namespace Sentis
         [SerializeField]
         private KeypointVisualizer keypointVisualizer;
 
+        [SerializeField, Tooltip("Raw image component for model input preview")]
+        private UnityEngine.UI.RawImage modelInputPreview;
+
         private Worker worker;
         private ImageProcessor imageProcessor;
         private TensorConverter tensorConverter;
         private OutputProcessor outputProcessor;
         private bool disposed = false;
         private float lastProcessTime;
+        private Texture2D scaledImage;
 
         private const int MODEL_INPUT_SIZE = 640;
         private const float PROCESS_INTERVAL = 0.3f; // Zmniejszono do 2 razy na sekundę
@@ -60,7 +64,7 @@ namespace Sentis
             if (keypoints != null && keypoints.Length > 0)
             {
                 // Uncomment to debug keypoints
-                ImageProcessorHelper.DebugKeypoints(keypoints);
+                ImageProcessorHelper.DebugKeypoints(keypoints); ////////////////////////////////////////////
                 keypointVisualizer.DrawKeypoints(keypoints);
             }
             else
@@ -73,6 +77,12 @@ namespace Sentis
         private Tensor<float> PrepareAndConvertImage(Texture2D image)
         {
             var scaledImage = imageProcessor.ScaleImage(image);
+
+            // Display the scaled image in the model input preview
+            if (modelInputPreview != null)
+            {
+                modelInputPreview.texture = scaledImage;
+            }
             var inputTensor = tensorConverter.ImageToTensor(scaledImage);
             if (scaledImage != image)
                 UnityEngine.Object.Destroy(scaledImage);
@@ -95,10 +105,18 @@ namespace Sentis
             }
         }
 
+        private void UpdateModelInputPreview()
+        {
+            if (scaledImage != null && modelInputPreview != null)
+            {
+                modelInputPreview.texture = scaledImage;
+            }
+        }
+
         private void Update()
         {
             UpdateCameraPreview();
-
+            UpdateModelInputPreview();
             // Sprawdź czy minął wymagany czas
             float elapsedTime = Time.time - lastProcessTime;
             if (elapsedTime < PROCESS_INTERVAL)
