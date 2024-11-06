@@ -72,37 +72,60 @@ namespace Sentis
         /// Processes tensor data and fills keypoints array.
         private void ProcessTensorData(Tensor<float> outputTensor, KeyPoint[] keypoints)
         {
-            // Download tensor data to NativeArray
-            NativeArray<float> dataArray = OutputUtils.DownloadTensorData(outputTensor);
+            // Direct access to tensor data using indexer
+            var tensorShape = outputTensor.shape;
+            int numKeypoints = tensorShape[1]; // Shape is [1, 56, 8400]
+            float modelWidth = 640f; // Typowe wymiary wejściowe modelu
+            float modelHeight = 640f;
+            for (int i = 0; i < numKeypoints && i < NUM_KEYPOINTS; i++)
+            {
+                // Get x, y, confidence for each keypoint
+                float x = outputTensor[0, i, 0];
+                float y = outputTensor[0, i, 1];
+                float confidence = outputTensor[0, i, 2];
 
-            // Process keypoints from dataArray
-            ProcessKeypointsFromArray(dataArray, keypoints);
+                // Normalize coordinates to 0-1 range
+                x = Mathf.Clamp01(x / modelWidth);
+                y = Mathf.Clamp01(y / modelHeight);
 
-            // Dispose of NativeArray after use
-            dataArray.Dispose();
+                // Filter by confidence threshold
+                if (confidence >= confidenceThreshold)
+                {
+                    keypoints[i] = new KeyPoint(new Vector2(x, y), confidence);
+                }
+                else
+                {
+                    keypoints[i] = new KeyPoint(Vector2.zero, 0f);
+                }
+                ; // Log keypoint data
+                string keypointName = ((KeypointName)i).ToString();
+                // Debug.Log(
+                //     $"Keypoint {i} ({keypointName}): Position(x:{x:F2}, y:{y:F2}), Confidence: {confidence:F3}"
+                // );
+            }
         }
 
-        private void ProcessKeypointsFromArray(NativeArray<float> dataArray, KeyPoint[] keypoints)
-        {
-            try
-            {
-                if (!OutputUtils.ValidateDataArrayLength(dataArray, NUM_KEYPOINTS * 3))
-                    return;
+        // private void ProcessKeypointsFromArray(NativeArray<float> dataArray, KeyPoint[] keypoints)
+        // {
+        //     try
+        //     {
+        //         if (!OutputUtils.ValidateDataArrayLength(dataArray, NUM_KEYPOINTS * 3))
+        //             return;
 
-                OutputUtils.ClearKeypoints(keypoints, NUM_KEYPOINTS);
-                OutputUtils.ExtractKeypoints(
-                    dataArray,
-                    keypoints,
-                    NUM_KEYPOINTS,
-                    confidenceThreshold
-                );
-            }
-            catch (Exception e)
-            {
-                Debug.LogError(
-                    $"Error processing keypoints: {e.Message}\nStackTrace: {e.StackTrace}"
-                );
-            }
-        }
+        //         OutputUtils.ClearKeypoints(keypoints, NUM_KEYPOINTS);
+        //         OutputUtils.ExtractKeypoints(
+        //             dataArray,
+        //             keypoints,
+        //             NUM_KEYPOINTS,
+        //             confidenceThreshold
+        //         );
+        //     }
+        //     catch (Exception e)
+        //     {
+        //         Debug.LogError(
+        //             $"Error processing keypoints: {e.Message}\nStackTrace: {e.StackTrace}"
+        //         );
+        //     }
+        // }
     }
 }
