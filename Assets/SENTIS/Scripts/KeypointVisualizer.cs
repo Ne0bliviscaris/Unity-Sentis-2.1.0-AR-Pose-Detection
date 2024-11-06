@@ -18,7 +18,17 @@ namespace Sentis
         private RawImage targetImage;
 
         [SerializeField, Tooltip("Minimum confidence threshold")]
-        private float confidenceThreshold = 0.5f;
+        private float confidenceThreshold = 0.2f;
+
+        // scale factor for keypoint positions
+        [SerializeField, Tooltip("Scale factor for keypoint positions")]
+        private float scaleFactor = 5f; // Zwiększamy skalę punktów
+
+        [SerializeField, Tooltip("Offset for X coordinates")]
+        private float offsetX = 0.2f; // Przesunięcie w poziomie
+
+        [SerializeField, Tooltip("Offset for Y coordinates")]
+        private float offsetY = 0.2f; // Przesunięcie w pionie
 
         private Texture2D drawingTexture;
 
@@ -66,16 +76,33 @@ namespace Sentis
 
         private void DrawAllKeypoints(KeyPoint[] keypoints)
         {
+            Debug.Log(
+                $"Drawing texture dimensions: {drawingTexture.width}x{drawingTexture.height}"
+            );
+
             for (int i = 0; i < keypoints.Length; i++)
             {
-                if (keypoints[i].Confidence > confidenceThreshold)
-                {
-                    Vector2 pos = keypoints[i].Position;
+                Vector2 normalizedPos = keypoints[i].Position;
+                float confidence = keypoints[i].Confidence;
+                string keypointName = ((KeypointName)i).ToString();
 
-                    // Przekształć pozycję z zakresu [0,1] na piksele
+                // Skaluj i przesuń współrzędne
+                Vector2 adjustedPos = new Vector2(
+                    (normalizedPos.x * scaleFactor) + offsetX,
+                    (normalizedPos.y * scaleFactor) + offsetY
+                );
+
+                // Zapewnij, że punkty mieszczą się w zakresie 0-1
+                adjustedPos = new Vector2(
+                    Mathf.Clamp01(adjustedPos.x),
+                    Mathf.Clamp01(adjustedPos.y)
+                );
+
+                if (confidence > confidenceThreshold)
+                {
                     Vector2 pixelPos = new Vector2(
-                        pos.x * drawingTexture.width,
-                        pos.y * drawingTexture.height
+                        adjustedPos.x * drawingTexture.width,
+                        adjustedPos.y * drawingTexture.height
                     );
 
                     if (
@@ -87,6 +114,9 @@ namespace Sentis
                     )
                     {
                         KeypointUtils.DrawCircle(drawingTexture, pixelPos, pointSize, pointColor);
+                        Debug.Log(
+                            $"Drawing {keypointName}: Adjusted={adjustedPos}, Pixels={pixelPos}, Confidence={confidence:F3}"
+                        );
                     }
                 }
             }
