@@ -42,6 +42,16 @@ namespace Sentis
             if (!ValidateDataArrayLength(dataArray, numKeypoints * 3))
                 return;
 
+            Debug.Log($"Data array length: {dataArray.Length}");
+            Debug.Log("Raw data array values:");
+            for (int i = 0; i < Math.Min(30, dataArray.Length); i += 3)
+            {
+                KeypointName keypointName = (KeypointName)(i / 3);
+                Debug.Log(
+                    $"Index {i / 3} {keypointName}: x={dataArray[i]}, y={dataArray[i + 1]}, conf={dataArray[i + 2]}"
+                );
+            }
+
             for (int i = 0; i < numKeypoints; i++)
             {
                 int xIndex = i * 3;
@@ -53,6 +63,10 @@ namespace Sentis
                 float conf = dataArray[confIndex];
 
                 KeypointName keypointName = (KeypointName)i;
+
+                // Normalize coordinates if needed (if they're not already in 0-1 range)
+                x = Mathf.Clamp01(x / 640f); // Assuming 640 is model input size
+                y = Mathf.Clamp01(y / 640f);
 
                 if (conf >= confidenceThreshold)
                 {

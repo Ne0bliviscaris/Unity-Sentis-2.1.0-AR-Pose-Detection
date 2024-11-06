@@ -64,7 +64,7 @@ namespace Sentis
             if (keypoints != null && keypoints.Length > 0)
             {
                 // Uncomment to debug keypoints
-                ImageProcessorHelper.DebugKeypoints(keypoints); ////////////////////////////////////////////
+                // ImageProcessorHelper.DebugKeypoints(keypoints); ////////////////////////////////////////////
                 keypointVisualizer.DrawKeypoints(keypoints);
             }
             else
