@@ -5,8 +5,8 @@ namespace Sentis
 {
     public struct KeyPoint
     {
-        public Vector2 Position { get; private set; }
-        public float Confidence { get; private set; }
+        public Vector2 Position { get; set; }
+        public float Confidence { get; set; }
 
         public KeyPoint(Vector2 position, float confidence)
         {
