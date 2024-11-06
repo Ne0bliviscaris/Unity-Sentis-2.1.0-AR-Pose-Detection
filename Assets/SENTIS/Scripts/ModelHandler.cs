@@ -31,7 +31,7 @@ namespace Sentis
         private Texture2D scaledImage;
 
         private const int MODEL_INPUT_SIZE = 640;
-        private const float PROCESS_INTERVAL = 0.3f; // Zmniejszono do 2 razy na sekundę
+        private const float PROCESS_INTERVAL = 0.0f; // No interval
 
         private void Start()
         {
