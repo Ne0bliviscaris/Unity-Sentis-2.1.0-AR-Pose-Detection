@@ -481,8 +481,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   keypointPrefab: {fileID: 1829678793}
-  confidenceThreshold: 0.5
-  scaleFactor: 20000
+  confidenceThreshold: 0.3
+  scaleFactor: 1
   zOffset: 0
   labelOffset: 0
 --- !u!4 &1359684595
@@ -495,7 +495,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 726.08405, y: 312.21652, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 50, y: 50, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1829678797}
