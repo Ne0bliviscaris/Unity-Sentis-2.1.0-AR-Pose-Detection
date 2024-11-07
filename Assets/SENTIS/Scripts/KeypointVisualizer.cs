@@ -1,137 +1,155 @@
 // KeypointVisualizer.cs
 using System;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
-
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 namespace Sentis
 {
     /// Handles drawing keypoints on camera preview
     public class KeypointVisualizer : MonoBehaviour
     {
-        [SerializeField, Tooltip("Size of keypoint circles")]
-        private float pointSize = 10f; // Zmniejszony rozmiar punktu
+        [SerializeField]
+        private GameObject keypointPrefab;
 
-        [SerializeField, Tooltip("Color for keypoints")]
-        private Color pointColor = Color.green;
-
-        [SerializeField, Tooltip("Reference to RawImage for drawing")]
-        private RawImage targetImage;
-
-        [SerializeField, Tooltip("Minimum confidence threshold")]
+        [SerializeField]
         private float confidenceThreshold = 0.2f;
 
-        // scale factor for keypoint positions
-        [SerializeField, Tooltip("Scale factor for keypoint positions")]
-        private float scaleFactor = 5f; // Zwiększamy skalę punktów
+        [SerializeField]
+        private float scaleFactor = 1f;
 
-        [SerializeField, Tooltip("Offset for X coordinates")]
-        private float offsetX = 0.2f; // Przesunięcie w poziomie
+        [SerializeField]
+        private float zOffset = -1;
 
-        [SerializeField, Tooltip("Offset for Y coordinates")]
-        private float offsetY = 0.2f; // Przesunięcie w pionie
+        [SerializeField]
+        private float labelOffset = 0.1f; // Offset dla etykiety nad punktem
 
-        private Texture2D drawingTexture;
+        private GameObject[] keypointObjects;
+        private TextMesh[] keypointLabels;
+        private const int NUM_KEYPOINTS = 17;
 
-        public void DrawKeypoints(KeyPoint[] keypoints)
+        private void Start()
         {
-            if (!KeypointUtils.ValidateVisualizationInput(targetImage, keypoints))
-                return;
-
-            if (!PrepareTexture())
-                return;
-
-            Graphics.CopyTexture(targetImage.texture, drawingTexture);
-            DrawAllKeypoints(keypoints);
-            ApplyChanges();
+            InitializeKeypointObjects();
         }
 
-        private bool PrepareTexture()
+        private void InitializeKeypointObjects()
         {
-            try
+            keypointObjects = new GameObject[NUM_KEYPOINTS];
+            keypointLabels = new TextMesh[NUM_KEYPOINTS];
+
+#if UNITY_EDITOR
+            // Create sorting layer if it doesn't exist
+            if (!SortingLayer.layers.ToList().Any(l => l.name == "Keypoints"))
             {
-                if (
-                    drawingTexture == null
-                    || drawingTexture.width != targetImage.texture.width
-                    || drawingTexture.height != targetImage.texture.height
-                )
+                SerializedObject tagManager = new SerializedObject(
+                    AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]
+                );
+                SerializedProperty layers = tagManager.FindProperty("m_SortingLayers");
+                layers.InsertArrayElementAtIndex(layers.arraySize);
+                var newLayer = layers.GetArrayElementAtIndex(layers.arraySize - 1);
+                newLayer.FindPropertyRelative("name").stringValue = "Keypoints";
+                newLayer.FindPropertyRelative("uniqueID").intValue =
+                    Mathf.Max(SortingLayer.layers.Select(l => l.id).Max(), 0) + 1;
+                tagManager.ApplyModifiedProperties();
+            }
+#endif
+
+            for (int i = 0; i < NUM_KEYPOINTS; i++)
+            {
+                // Create keypoint object
+                keypointObjects[i] = Instantiate(keypointPrefab, Vector3.zero, Quaternion.identity);
+                keypointObjects[i].name = $"Keypoint_{((KeypointName)i)}";
+                keypointObjects[i].transform.SetParent(transform);
+
+                // Set rendering properties
+                var renderer = keypointObjects[i].GetComponent<Renderer>();
+                if (renderer != null)
                 {
-                    if (drawingTexture != null)
-                        Destroy(drawingTexture);
+                    renderer.sortingLayerName = "Keypoints";
+                    renderer.sortingOrder = 1;
 
-                    drawingTexture = new Texture2D(
-                        targetImage.texture.width,
-                        targetImage.texture.height,
-                        TextureFormat.RGBA32,
-                        false
-                    );
+                    // Make sure material renders over everything
+                    var material = renderer.material;
+                    material.renderQueue = 4000; // Render after transparent objects
                 }
-                return true;
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Failed to prepare texture: {e.Message}");
-                return false;
+
+                // Setup label with same rendering properties
+                var labelObj = CreateLabel(i);
+                keypointLabels[i] = labelObj.GetComponent<TextMesh>();
+                var textRenderer = labelObj.GetComponent<MeshRenderer>();
+                if (textRenderer != null)
+                {
+                    textRenderer.sortingLayerName = "Keypoints";
+                    textRenderer.sortingOrder = 2;
+                    textRenderer.material.renderQueue = 4001;
+                }
+
+                keypointObjects[i].SetActive(false);
             }
         }
 
-        private void DrawAllKeypoints(KeyPoint[] keypoints)
+        public void UpdateKeypoints(KeyPoint[] keypoints)
         {
-            Debug.Log(
-                $"Drawing texture dimensions: {drawingTexture.width}x{drawingTexture.height}"
-            );
+            if (keypoints == null || keypointObjects == null)
+                return;
 
             for (int i = 0; i < keypoints.Length; i++)
             {
-                Vector2 normalizedPos = keypoints[i].Position;
-                float confidence = keypoints[i].Confidence;
-                string keypointName = ((KeypointName)i).ToString();
+                bool isVisible = keypoints[i].Confidence >= confidenceThreshold;
+                keypointObjects[i].SetActive(isVisible);
 
-                // Skaluj i przesuń współrzędne
-                Vector2 adjustedPos = new Vector2(
-                    (normalizedPos.x * scaleFactor) + offsetX,
-                    (normalizedPos.y * scaleFactor) + offsetY
-                );
-
-                // Zapewnij, że punkty mieszczą się w zakresie 0-1
-                adjustedPos = new Vector2(
-                    Mathf.Clamp01(adjustedPos.x),
-                    Mathf.Clamp01(adjustedPos.y)
-                );
-
-                if (confidence > confidenceThreshold)
+                if (isVisible)
                 {
-                    Vector2 pixelPos = new Vector2(
-                        adjustedPos.x * drawingTexture.width,
-                        adjustedPos.y * drawingTexture.height
+                    Vector3 worldPosition = new Vector3(
+                        keypoints[i].Position.x * scaleFactor,
+                        keypoints[i].Position.y * scaleFactor,
+                        zOffset // Z offset to ensure keypoint is in front of the camera
                     );
 
-                    if (
-                        KeypointUtils.IsWithinTextureBounds(
-                            pixelPos,
-                            drawingTexture.width,
-                            drawingTexture.height
-                        )
-                    )
+                    keypointObjects[i].transform.position = worldPosition;
+                    // Ensure label faces camera
+                    if (Camera.main != null)
                     {
-                        KeypointUtils.DrawCircle(drawingTexture, pixelPos, pointSize, pointColor);
-                        Debug.Log(
-                            $"Drawing {keypointName}: Adjusted={adjustedPos}, Pixels={pixelPos}, Confidence={confidence:F3}"
-                        );
+                        keypointLabels[i].transform.rotation = Camera.main.transform.rotation;
                     }
+
+                    Debug.Log(
+                        $"Keypoint {(KeypointName)i}: Position={worldPosition}, Confidence={keypoints[i].Confidence:F3}"
+                    );
                 }
             }
         }
 
-        private void ApplyChanges()
+        private GameObject CreateLabel(int index)
         {
-            drawingTexture.Apply();
-            targetImage.texture = drawingTexture;
+            var labelObj = new GameObject($"Label_{((KeypointName)index)}");
+            labelObj.transform.SetParent(keypointObjects[index].transform);
+
+            var textMesh = labelObj.AddComponent<TextMesh>();
+            textMesh.text = ((KeypointName)index).ToString();
+            textMesh.fontSize = 14;
+            textMesh.anchor = TextAnchor.LowerCenter;
+            textMesh.alignment = TextAlignment.Center;
+            textMesh.characterSize = 0.01f;
+
+            labelObj.transform.localPosition = Vector3.up * labelOffset;
+
+            return labelObj;
         }
 
         private void OnDestroy()
         {
-            if (drawingTexture != null)
-                Destroy(drawingTexture);
+            if (keypointObjects != null)
+            {
+                foreach (var obj in keypointObjects)
+                {
+                    if (obj != null)
+                        Destroy(obj);
+                }
+            }
         }
     }
 }
