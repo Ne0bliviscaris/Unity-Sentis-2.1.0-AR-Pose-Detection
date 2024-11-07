@@ -19,9 +19,6 @@ namespace Sentis
         [SerializeField]
         private KeypointVisualizer keypointVisualizer;
 
-        [SerializeField, Tooltip("Raw image component for model input preview")]
-        private UnityEngine.UI.RawImage modelInputPreview;
-
         private Worker worker;
         private ImageProcessor imageProcessor;
         private TensorConverter tensorConverter;
@@ -78,11 +75,6 @@ namespace Sentis
         {
             var scaledImage = imageProcessor.ScaleImage(image);
 
-            // Display the scaled image in the model input preview
-            if (modelInputPreview != null)
-            {
-                modelInputPreview.texture = scaledImage;
-            }
             var inputTensor = tensorConverter.ImageToTensor(scaledImage);
             if (scaledImage != image)
                 UnityEngine.Object.Destroy(scaledImage);
@@ -105,18 +97,9 @@ namespace Sentis
             }
         }
 
-        private void UpdateModelInputPreview()
-        {
-            if (scaledImage != null && modelInputPreview != null)
-            {
-                modelInputPreview.texture = scaledImage;
-            }
-        }
-
         private void Update()
         {
             UpdateCameraPreview();
-            UpdateModelInputPreview();
             // Sprawdź czy minął wymagany czas
             float elapsedTime = Time.time - lastProcessTime;
             if (elapsedTime < PROCESS_INTERVAL)

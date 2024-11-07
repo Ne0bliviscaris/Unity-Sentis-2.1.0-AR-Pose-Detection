@@ -9,19 +9,6 @@ namespace Sentis
 {
     public static class OutputUtils
     {
-        /// Validates the length of the data array.
-        public static bool ValidateDataArrayLength(NativeArray<float> dataArray, int expectedLength)
-        {
-            if (dataArray.Length < expectedLength)
-            {
-                Debug.LogError(
-                    $"Invalid data array length. Expected: {expectedLength}, Got: {dataArray.Length}"
-                );
-                return false;
-            }
-            return true;
-        }
-
         // /// Checks if the output tensor is valid.
         public static bool IsOutputTensorValid(Tensor<float> outputTensor)
         {

@@ -104,28 +104,5 @@ namespace Sentis
                 // );
             }
         }
-
-        // private void ProcessKeypointsFromArray(NativeArray<float> dataArray, KeyPoint[] keypoints)
-        // {
-        //     try
-        //     {
-        //         if (!OutputUtils.ValidateDataArrayLength(dataArray, NUM_KEYPOINTS * 3))
-        //             return;
-
-        //         OutputUtils.ClearKeypoints(keypoints, NUM_KEYPOINTS);
-        //         OutputUtils.ExtractKeypoints(
-        //             dataArray,
-        //             keypoints,
-        //             NUM_KEYPOINTS,
-        //             confidenceThreshold
-        //         );
-        //     }
-        //     catch (Exception e)
-        //     {
-        //         Debug.LogError(
-        //             $"Error processing keypoints: {e.Message}\nStackTrace: {e.StackTrace}"
-        //         );
-        //     }
-        // }
     }
 }
