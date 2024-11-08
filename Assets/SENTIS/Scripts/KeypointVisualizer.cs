@@ -15,7 +15,7 @@ namespace Sentis
         private GameObject keypointPrefab;
 
         [SerializeField]
-        private float confidenceThreshold = 0.2f;
+        private float confidenceThreshold = 0.5f;
 
         [SerializeField]
         private float scaleFactor = 1f;
@@ -116,9 +116,9 @@ namespace Sentis
                         keypointLabels[i].transform.rotation = Camera.main.transform.rotation;
                     }
 
-                    Debug.Log(
-                        $"Keypoint {(KeypointName)i}: Position={worldPosition}, Confidence={keypoints[i].Confidence:F3}"
-                    );
+                    // Debug.Log(
+                    //     $"Keypoint {(KeypointName)i}: Position={worldPosition}, Confidence={keypoints[i].Confidence:F3}"
+                    // );
                 }
             }
         }
