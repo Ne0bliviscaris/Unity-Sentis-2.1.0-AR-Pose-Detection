@@ -111,18 +111,21 @@ namespace Sentis
                 // Debug.Log($"Raw output shape: [{string.Join(", ", rawOutput.shape)}]");
 
                 // Znajdź najlepszą detekcję (uproszczone NMS)
-                float bestScore = float.MinValue;
+                float bestScore = 0f;
                 int bestIdx = 0;
 
                 // Sprawdź confidence score dla każdej detekcji
                 for (int i = 0; i < rawOutput.shape[2]; i++)
                 {
                     float confidence = rawOutput[0, 4, i];
-                    confidence = Mathf.Clamp01(confidence);
-                    if (confidence > bestScore)
+                    if (!float.IsNaN(confidence) && !float.IsInfinity(confidence))
                     {
-                        bestScore = confidence;
-                        bestIdx = i;
+                        confidence = Mathf.Clamp01(confidence);
+                        if (confidence > bestScore)
+                        {
+                            bestScore = confidence;
+                            bestIdx = i;
+                        }
                     }
                 }
 
@@ -140,21 +143,52 @@ namespace Sentis
                 // Skopiuj keypoints tylko dla najlepszej detekcji
                 var landmarksTensor = new Tensor<float>(new TensorShape(1, NUM_KEYPOINTS * 3));
                 int offset = 5;
+                bool allValid = true;
 
                 for (int kp = 0; kp < NUM_KEYPOINTS; kp++)
                 {
-                    // Get raw values
-                    float x = rawOutput[0, offset + kp * 3, bestIdx];
-                    float y = rawOutput[0, offset + kp * 3 + 1, bestIdx];
-                    float conf = rawOutput[0, offset + kp * 3 + 2, bestIdx];
+                    float x = 0f,
+                        y = 0f,
+                        conf = 0f;
 
-                    // Normalize confidence
-                    conf = Mathf.Clamp01(conf);
-
-                    // Debug values
-                    if (kp == 0) // Log first keypoint as sample
+                    try
                     {
-                        Debug.Log($"Keypoint 0: x={x:F3}, y={y:F3}, conf={conf:F3}");
+                        x = rawOutput[0, offset + kp * 3, bestIdx];
+                        y = rawOutput[0, offset + kp * 3 + 1, bestIdx];
+                        conf = rawOutput[0, offset + kp * 3 + 2, bestIdx];
+
+                        // Validate values
+                        if (
+                            float.IsNaN(x)
+                            || float.IsNaN(y)
+                            || float.IsInfinity(x)
+                            || float.IsInfinity(y)
+                        )
+                        {
+                            Debug.LogWarning($"Invalid keypoint {kp}: x={x}, y={y}");
+                            x = y = 0f;
+                            conf = 0f;
+                            allValid = false;
+                        }
+                        else
+                        {
+                            // Ensure values are within reasonable range
+                            x = Mathf.Clamp(x, 0f, MODEL_INPUT_SIZE);
+                            y = Mathf.Clamp(y, 0f, MODEL_INPUT_SIZE);
+
+                            // Normalize to 0-1 range
+                            x /= MODEL_INPUT_SIZE;
+                            y /= MODEL_INPUT_SIZE;
+                            conf = Mathf.Clamp01(conf);
+
+                            Debug.Log($"Keypoint {kp}: x={x:F3}, y={y:F3}, conf={conf:F3}");
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError($"Error processing keypoint {kp}: {e.Message}");
+                        x = y = conf = 0f;
+                        allValid = false;
                     }
 
                     landmarksTensor[0, kp * 3] = x;
@@ -162,12 +196,18 @@ namespace Sentis
                     landmarksTensor[0, kp * 3 + 2] = conf;
                 }
 
+                if (!allValid)
+                {
+                    landmarksTensor.Dispose();
+                    return null;
+                }
+
                 rawOutput.Dispose();
                 return new[] { landmarksTensor };
             }
             catch (Exception e)
             {
-                Debug.LogError($"Error: {e.Message}");
+                Debug.LogError($"Error executing model: {e.Message}\nStackTrace: {e.StackTrace}");
                 return null;
             }
         }
