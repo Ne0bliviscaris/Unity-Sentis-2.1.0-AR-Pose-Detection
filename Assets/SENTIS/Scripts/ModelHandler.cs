@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Unity.Sentis;
 using UnityEngine;
 
@@ -17,6 +19,9 @@ namespace Sentis
         private UnityEngine.UI.RawImage previewImage;
 
         [SerializeField]
+        private Camera mainCamera; // Dodaj referencję do kamery
+
+        [SerializeField]
         private KeypointVisualizer keypointVisualizer;
 
         private Worker worker;
@@ -30,7 +35,7 @@ namespace Sentis
         private const float PROCESS_INTERVAL = 0.0f; // No interval
 
         private int NUM_KEYPOINTS = 17;
-        private float confidenceThreshold = 0.5f;
+        private float confidenceThreshold = 0.2f;
 
         private void Start()
         {
@@ -39,6 +44,9 @@ namespace Sentis
                 enabled = false;
                 return;
             }
+            // Use properties instead of direct field access
+            keypointVisualizer.TargetCamera = mainCamera;
+            keypointVisualizer.CameraPreview = previewImage;
 
             HelperMethods.InitializeProcessors(
                 out imageProcessor,
@@ -101,105 +109,31 @@ namespace Sentis
             try
             {
                 worker.Schedule(inputTensor);
-
                 var rawOutput = worker.PeekOutput(0) as Tensor<float>;
                 if (rawOutput == null)
+                {
+                    Debug.LogError("Failed to get model output");
                     return null;
+                }
 
                 rawOutput.CompleteAllPendingOperations();
-                // Debug tensor shape
-                // Debug.Log($"Raw output shape: [{string.Join(", ", rawOutput.shape)}]");
 
-                // Znajdź najlepszą detekcję (uproszczone NMS)
-                float bestScore = 0f;
-                int bestIdx = 0;
+                var detections = NonMaxSuppression(rawOutput, confidenceThreshold, 0.45f);
 
-                // Sprawdź confidence score dla każdej detekcji
-                for (int i = 0; i < rawOutput.shape[2]; i++)
+                if (detections.Count == 0)
                 {
-                    float confidence = rawOutput[0, 4, i];
-                    if (!float.IsNaN(confidence) && !float.IsInfinity(confidence))
-                    {
-                        confidence = Mathf.Clamp01(confidence);
-                        if (confidence > bestScore)
-                        {
-                            bestScore = confidence;
-                            bestIdx = i;
-                        }
-                    }
-                }
-
-                // Jeśli najlepsza detekcja ma za niski score, zwróć null
-                if (bestScore < confidenceThreshold)
-                {
-                    Debug.Log($"No valid keypoints detected");
+                    Debug.Log("No valid keypoints detected");
                     return null;
                 }
-                else
-                {
-                    Debug.Log($"Best detection: index={bestIdx}, confidence={bestScore:F3}");
-                }
 
-                // Skopiuj keypoints tylko dla najlepszej detekcji
+                var bestDetection = detections[0];
                 var landmarksTensor = new Tensor<float>(new TensorShape(1, NUM_KEYPOINTS * 3));
-                int offset = 5;
-                bool allValid = true;
 
                 for (int kp = 0; kp < NUM_KEYPOINTS; kp++)
                 {
-                    float x = 0f,
-                        y = 0f,
-                        conf = 0f;
-
-                    try
-                    {
-                        x = rawOutput[0, offset + kp * 3, bestIdx];
-                        y = rawOutput[0, offset + kp * 3 + 1, bestIdx];
-                        conf = rawOutput[0, offset + kp * 3 + 2, bestIdx];
-
-                        // Validate values
-                        if (
-                            float.IsNaN(x)
-                            || float.IsNaN(y)
-                            || float.IsInfinity(x)
-                            || float.IsInfinity(y)
-                        )
-                        {
-                            Debug.LogWarning($"Invalid keypoint {kp}: x={x}, y={y}");
-                            x = y = 0f;
-                            conf = 0f;
-                            allValid = false;
-                        }
-                        else
-                        {
-                            // Ensure values are within reasonable range
-                            x = Mathf.Clamp(x, 0f, MODEL_INPUT_SIZE);
-                            y = Mathf.Clamp(y, 0f, MODEL_INPUT_SIZE);
-
-                            // Normalize to 0-1 range
-                            x /= MODEL_INPUT_SIZE;
-                            y /= MODEL_INPUT_SIZE;
-                            conf = Mathf.Clamp01(conf);
-
-                            Debug.Log($"Keypoint {kp}: x={x:F3}, y={y:F3}, conf={conf:F3}");
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.LogError($"Error processing keypoint {kp}: {e.Message}");
-                        x = y = conf = 0f;
-                        allValid = false;
-                    }
-
-                    landmarksTensor[0, kp * 3] = x;
-                    landmarksTensor[0, kp * 3 + 1] = y;
-                    landmarksTensor[0, kp * 3 + 2] = conf;
-                }
-
-                if (!allValid)
-                {
-                    landmarksTensor.Dispose();
-                    return null;
+                    landmarksTensor[0, kp * 3] = bestDetection[kp * 3];
+                    landmarksTensor[0, kp * 3 + 1] = bestDetection[kp * 3 + 1];
+                    landmarksTensor[0, kp * 3 + 2] = bestDetection[kp * 3 + 2];
                 }
 
                 rawOutput.Dispose();
@@ -210,6 +144,62 @@ namespace Sentis
                 Debug.LogError($"Error executing model: {e.Message}\nStackTrace: {e.StackTrace}");
                 return null;
             }
+        }
+
+        /// Performs Non-Maximum Suppression (NMS) on the model output.
+        private List<float[]> NonMaxSuppression(
+            Tensor<float> prediction,
+            float confThres = 0.25f,
+            float iouThres = 0.45f
+        )
+        {
+            var output = new List<float[]>();
+
+            for (int i = 0; i < prediction.shape[2]; i++)
+            {
+                float confidence = prediction[0, 4, i];
+                if (confidence < confThres)
+                    continue;
+
+                var box = new float[56];
+                for (int j = 0; j < 56; j++)
+                {
+                    box[j] = prediction[0, j, i];
+                }
+
+                output.Add(box);
+            }
+            Debug.Log($"Detections before NMS: {output.Count}");
+
+            output = output.OrderByDescending(x => x[4]).ToList();
+
+            var selected = new List<float[]>();
+            while (output.Count > 0)
+            {
+                var best = output[0];
+                selected.Add(best);
+                output.RemoveAt(0);
+
+                output = output.Where(box => IoU(best, box) < iouThres).ToList();
+            }
+            Debug.Log($"Detections after NMS: {selected.Count}");
+
+            return selected;
+        }
+
+        /// Calculates Intersection over Union (IoU) for two bounding boxes.
+        private float IoU(float[] boxA, float[] boxB)
+        {
+            float x1 = Mathf.Max(boxA[0], boxB[0]);
+            float y1 = Mathf.Max(boxA[1], boxB[1]);
+            float x2 = Mathf.Min(boxA[2], boxB[2]);
+            float y2 = Mathf.Min(boxA[3], boxB[3]);
+
+            float intersection = Mathf.Max(0, x2 - x1) * Mathf.Max(0, y2 - y1);
+            float areaA = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1]);
+            float areaB = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1]);
+
+            return intersection / (areaA + areaB - intersection);
         }
 
         private void UpdateCameraPreview()

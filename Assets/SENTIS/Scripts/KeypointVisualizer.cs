@@ -18,10 +18,20 @@ namespace Sentis
         private float confidenceThreshold = 0.5f;
 
         [SerializeField]
-        private float scaleFactor = 1f;
+        private Camera _targetCamera;
+        public Camera TargetCamera
+        {
+            get => _targetCamera;
+            set => _targetCamera = value;
+        }
 
         [SerializeField]
-        private float zOffset = -1;
+        private UnityEngine.UI.RawImage _cameraPreview;
+        public UnityEngine.UI.RawImage CameraPreview
+        {
+            get => _cameraPreview;
+            set => _cameraPreview = value;
+        }
 
         [SerializeField]
         private float labelOffset = 0.1f; // Offset dla etykiety nad punktem
@@ -93,8 +103,17 @@ namespace Sentis
 
         public void UpdateKeypoints(KeyPoint[] keypoints)
         {
-            if (keypoints == null || keypointObjects == null)
+            if (
+                keypoints == null
+                || keypointObjects == null
+                || CameraPreview == null
+                || TargetCamera == null
+            )
                 return;
+
+            // Get preview dimensions from RawImage
+            var rect = CameraPreview.rectTransform.rect;
+            Vector2 screenDimensions = new Vector2(rect.width, rect.height);
 
             for (int i = 0; i < keypoints.Length; i++)
             {
@@ -103,22 +122,53 @@ namespace Sentis
 
                 if (isVisible)
                 {
-                    Vector3 worldPosition = new Vector3(
-                        keypoints[i].Position.x * scaleFactor,
-                        keypoints[i].Position.y * scaleFactor,
-                        zOffset // Z offset to ensure keypoint is in front of the camera
+                    // Convert normalized coordinates to screen space
+                    Vector2 screenPosition = new Vector2(
+                        keypoints[i].Position.x * screenDimensions.x,
+                        (1 - keypoints[i].Position.y) * screenDimensions.y // Maintain Y inversion
+                    );
+
+                    // Check if screen position is valid
+                    if (float.IsNaN(screenPosition.x) || float.IsNaN(screenPosition.y))
+                    {
+                        Debug.LogWarning(
+                            $"Invalid screen position (screen pos {screenPosition.x}, {screenPosition.y})"
+                        );
+                        continue;
+                    }
+
+                    // Check if screen position is within the view frustum
+                    if (
+                        screenPosition.x < 0
+                        || screenPosition.x > screenDimensions.x
+                        || screenPosition.y < 0
+                        || screenPosition.y > screenDimensions.y
+                    )
+                    {
+                        Debug.LogWarning(
+                            $"Screen position out of view frustum (screen pos {screenPosition.x}, {screenPosition.y}) (Camera rect {rect.x} {rect.y} {rect.width} {rect.height})"
+                        );
+                        continue;
+                    }
+
+                    // Convert to world space using target camera
+                    Vector3 worldPosition = TargetCamera.ScreenToWorldPoint(
+                        new Vector3(
+                            screenPosition.x,
+                            screenPosition.y,
+                            TargetCamera.nearClipPlane + 1.0f
+                        )
                     );
 
                     keypointObjects[i].transform.position = worldPosition;
-                    // Ensure label faces camera
-                    if (Camera.main != null)
-                    {
-                        keypointLabels[i].transform.rotation = Camera.main.transform.rotation;
-                    }
 
-                    // Debug.Log(
-                    //     $"Keypoint {(KeypointName)i}: Position={worldPosition}, Confidence={keypoints[i].Confidence:F3}"
-                    // );
+                    // Set a consistent scale for keypoint objects
+                    keypointObjects[i].transform.localScale = Vector3.one * 600.0f; // Adjust scale as needed
+                    // Update label rotation
+                    if (keypointLabels[i] != null)
+                    {
+                        keypointLabels[i].transform.rotation = TargetCamera.transform.rotation;
+                    }
                 }
             }
         }
